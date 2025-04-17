@@ -1,0 +1,31 @@
+name: Deploy to Lightsail VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: SSH into Lightsail and deploy
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Set up SSH
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+
+    - name: Deploy over SSH
+      run: |
+        ssh -o StrictHostKeyChecking=no ubuntu@18.171.168.210 << 'EOF'
+          cd fastapi-lightsail-deploy || git clone https://github.com/pojava/fastapi-lightsail-deploy.git && cd fastapi-lightsail-deploy
+          git pull origin main
+          docker stop $(docker ps -q) || true
+          docker rm $(docker ps -aq) || true
+          docker build -t fastapi-lightsail .
+          docker run -d -p 80:80 fastapi-lightsail
+        EOF
