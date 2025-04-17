@@ -1,0 +1,30 @@
+name: Deploy FastAPI to EC2
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Install SSH key
+      uses: webfactory/ssh-agent@v0.8.0
+      with:
+        ssh-private-key: ${{ secrets.EC2_KEY }}
+
+    - name: Deploy to EC2 via SSH
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+          cd ~/fastapi-devops-demo || git clone https://github.com/pojava/fastapi-devops-demo.git && cd fastapi-devops-demo
+          git pull origin main
+          docker stop $(docker ps -q --filter ancestor=fastapi-app) || true
+          docker rm $(docker ps -aq --filter ancestor=fastapi-app) || true
+          docker build -t fastapi-app .
+          docker run -d -p 80:8000 fastapi-app
+        EOF
+
